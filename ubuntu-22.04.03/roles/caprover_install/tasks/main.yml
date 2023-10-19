@@ -1,0 +1,48 @@
+---
+# Setup Server
+# - name: Creating a new user
+# - name: Granting privileges to the user
+# - name: Setup basic firewall
+- name: Install Dependencies
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    update_cache: true
+# - name: Get Docker script
+#   ansible.builtin.uri:
+#     url: https://get.docker.com
+#     dest: "/tmp/get-docker.sh"
+#     method: GET
+#     return_content: true
+- name: Make script executable
+  ansible.builtin.file:
+    path: "/tmp/get-docker.sh"
+    mode: "+x"
+- name: Run script
+  ansible.builtin.shell: /tmp/get-docker.sh
+- name: Start and enable Docker Service
+  ansible.builtin.service:
+    name: "docker"
+    state: restarted
+    enabled: true
+- name: Add user to Docker group
+  ansible.builtin.user:
+    name: "{{ vars.user }}"
+    groups: "docker"
+    append: true
+- name: Create CapRover directory
+  ansible.builtin.file:
+    path: "/captain/data"
+    state: directory
+    recurse: true
+- name: Create CapRover config file
+  ansible.builtin.copy:
+    dest: "/captain/data/config-override.json"
+    content: "{\"skipVerifyingDomains\":\"true\"}"
+
+#  docker run -e ACCEPTED_TERMS=true -e MAIN_NODE_IP_ADDRESS=192.168.1.12 -p 80:80 -p 443:443 -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v /captain:/captain caprover/caprover
+# TODO use docker_container module
+- name: Run CapRover container
+  ansible.builtin.shell: docker run -e ACCEPTED_TERMS=true -e MAIN_NODE_IP_ADDRESS={{ vars.ip_address }} -p 80:80 -p 443:443 -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v /captain:/captain caprover/caprover

@@ -1,0 +1,7 @@
+---
+- name: Install CapRover
+  hosts: caprover
+  become: true
+  tags: caprover
+  roles:
+    - caprover_install
