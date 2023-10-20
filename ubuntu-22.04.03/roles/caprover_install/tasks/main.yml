@@ -1,8 +1,4 @@
 ---
-# Setup Server
-# - name: Creating a new user
-# - name: Granting privileges to the user
-# - name: Setup basic firewall
 - name: Install Dependencies
   ansible.builtin.apt:
     name:
@@ -10,39 +6,61 @@
       - curl
       - gnupg
     update_cache: true
-# - name: Get Docker script
-#   ansible.builtin.uri:
-#     url: https://get.docker.com
-#     dest: "/tmp/get-docker.sh"
-#     method: GET
-#     return_content: true
+
+- name: Get Docker script
+  ansible.builtin.uri:
+    url: https://get.docker.com
+    dest: "/tmp/get-docker.sh"
+    method: GET
+    return_content: true
+
 - name: Make script executable
   ansible.builtin.file:
     path: "/tmp/get-docker.sh"
     mode: "+x"
+
 - name: Run script
-  ansible.builtin.shell: /tmp/get-docker.sh
+  ansible.builtin.command: /tmp/get-docker.sh
+  changed_when: true
+
 - name: Start and enable Docker Service
   ansible.builtin.service:
     name: "docker"
     state: restarted
     enabled: true
+
 - name: Add user to Docker group
   ansible.builtin.user:
     name: "{{ vars.user }}"
     groups: "docker"
     append: true
+
 - name: Create CapRover directory
   ansible.builtin.file:
     path: "/captain/data"
     state: directory
     recurse: true
+
 - name: Create CapRover config file
   ansible.builtin.copy:
     dest: "/captain/data/config-override.json"
     content: "{\"skipVerifyingDomains\":\"true\"}"
+    mode: preserve
 
-#  docker run -e ACCEPTED_TERMS=true -e MAIN_NODE_IP_ADDRESS=192.168.1.12 -p 80:80 -p 443:443 -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v /captain:/captain caprover/caprover
-# TODO use docker_container module
-- name: Run CapRover container
-  ansible.builtin.shell: docker run -e ACCEPTED_TERMS=true -e MAIN_NODE_IP_ADDRESS={{ vars.ip_address }} -p 80:80 -p 443:443 -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v /captain:/captain caprover/caprover
+- name: Run CapRover
+  community.docker.docker_container:
+    image: caprover/caprover
+    name: caprover
+    state: started
+    ports:
+      - "80:80"
+      - "443:443"
+      - "3000:3000"
+    env:
+      ACCEPTED_TERMS: "true"
+      MAIN_NODE_IP_ADDRESS: "{{ vars.ip_address }}"
+      DOCKER_CLIENT_TIMEOUT: "120"
+      COMPOSE_HTTP_TIMEOUT: "120"
+    volumes:
+      - /captain:/captain
+      - /var/run/docker.sock:/var/run/docker.sock
